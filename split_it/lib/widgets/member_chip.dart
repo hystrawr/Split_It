@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import 'avatar_circle.dart';
 
 /// Pill for a member name.
 ///
@@ -28,11 +28,7 @@ class MemberChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = Text(subtitle == null ? name : '$name · $subtitle');
-    final avatar = CircleAvatar(
-      backgroundColor: AppColors.darkGreen,
-      foregroundColor: Colors.white,
-      child: Text(name.isEmpty ? '?' : name[0].toUpperCase()),
-    );
+    final avatar = AvatarCircle(name: name, size: 24);
 
     if (onSelected != null) {
       return FilterChip(
