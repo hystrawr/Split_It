@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:split_it/app_routes.dart';
 import 'package:split_it/main.dart';
 
 void main() {
   testWidgets('App starts on the home screen', (WidgetTester tester) async {
     await tester.pumpWidget(const SplitItApp());
 
-    expect(find.text('Split It'), findsOneWidget);
+    expect(find.text('Hi, Barby!'), findsOneWidget);
     expect(find.text('No groups yet'), findsOneWidget);
   });
 
@@ -25,13 +26,16 @@ void main() {
     }
 
     // Home -> Add Group -> back to Home
-    await tap('+ New group');
+    await tap('New group');
     expect(find.text('New Group'), findsOneWidget);
     await tap('Create Group');
-    expect(find.text('No groups yet'), findsOneWidget);
+    expect(find.text('Hi, Barby!'), findsOneWidget);
 
-    // Home -> Group Details
-    await tap('Open group');
+    // Home -> Group Details (no group cards yet, so open the route directly)
+    tester
+        .state<NavigatorState>(find.byType(Navigator))
+        .pushNamed(AppRoutes.group);
+    await tester.pumpAndSettle();
     expect(find.text('Group Details'), findsOneWidget);
 
     // Group -> Add Expense -> back to Group
@@ -56,6 +60,6 @@ void main() {
 
     // Group -> back to Home
     await back();
-    expect(find.text('No groups yet'), findsOneWidget);
+    expect(find.text('Hi, Barby!'), findsOneWidget);
   });
 }
