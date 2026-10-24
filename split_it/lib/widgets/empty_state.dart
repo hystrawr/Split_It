@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
-import 'app_button.dart';
+import 'primary_button.dart';
 
 /// Shown when a list has nothing in it ("No groups yet", "No expenses yet").
 class EmptyState extends StatelessWidget {
@@ -47,7 +47,7 @@ class EmptyState extends StatelessWidget {
               ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 4),
-              AppButton(label: actionLabel!, onPressed: onAction),
+              PrimaryButton(label: actionLabel!, onPressed: onAction),
             ],
           ],
         ),

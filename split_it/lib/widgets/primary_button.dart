@@ -5,8 +5,8 @@ import '../theme/app_theme.dart';
 
 /// Yellow outlined button with an offset shadow. The button slides into
 /// its shadow while pressed, so it needs a little state.
-class AppButton extends StatefulWidget {
-  const AppButton({
+class PrimaryButton extends StatefulWidget {
+  const PrimaryButton({
     super.key,
     required this.label,
     required this.onPressed,
@@ -26,10 +26,10 @@ class AppButton extends StatefulWidget {
   final bool expand;
 
   @override
-  State<AppButton> createState() => _AppButtonState();
+  State<PrimaryButton> createState() => _PrimaryButtonState();
 }
 
-class _AppButtonState extends State<AppButton> {
+class _PrimaryButtonState extends State<PrimaryButton> {
   static const double _shadowOffset = 4;
 
   bool _pressed = false;

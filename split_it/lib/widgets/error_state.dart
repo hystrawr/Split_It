@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
-import 'app_button.dart';
+import 'primary_button.dart';
 
 /// Shown when something fails, e.g. no internet or a Frankfurter call error.
 class ErrorState extends StatelessWidget {
@@ -46,7 +46,7 @@ class ErrorState extends StatelessWidget {
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 4),
-              AppButton(
+              PrimaryButton(
                 label: 'Retry',
                 icon: Icons.refresh,
                 onPressed: onRetry,
