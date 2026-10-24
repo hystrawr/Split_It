@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/home_screen.dart';
+import 'app_routes.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -16,7 +16,8 @@ class SplitItApp extends StatelessWidget {
       title: 'Split It',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const HomeScreen(),
+      initialRoute: AppRoutes.home,
+      routes: AppRoutes.routes,
     );
   }
 }
