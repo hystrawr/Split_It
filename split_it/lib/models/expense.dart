@@ -1,3 +1,4 @@
+/// One expense inside a group. Balances are calculated from [amountPhp].
 class Expense {
   const Expense({
     required this.id,
@@ -19,12 +20,26 @@ class Expense {
   final String where;
   final String item;
   final String category;
+
+  /// Amount in [currency], as the user typed it.
   final double amount;
+
+  /// ISO code of [amount], e.g. "USD".
   final String currency;
 
+  /// Frankfurter rate with base PHP: 1 PHP = [rate] [currency].
+  /// Saved with the expense so old expenses don't change when rates do.
+  /// For PHP expenses the rate is 1.
   final double rate;
+
+  /// [amount] converted to PHP (amount / rate). Balances use this value.
   final double amountPhp;
+
+  /// Member id of the person who paid.
   final String paidBy;
+
+  /// Member ids of everyone who shares this expense, including the payer
+  /// if they share it too.
   final List<String> splitWith;
   final DateTime date;
 
