@@ -1,9 +1,6 @@
+/// A person in a group. The member with [isOwner] is the app's user ("You").
 class Member {
-  const Member({
-    required this.id,
-    required this.name,
-    this.isOwner = false,
-  });
+  const Member({required this.id, required this.name, this.isOwner = false});
 
   final String id;
   final String name;
@@ -18,10 +15,6 @@ class Member {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'isOwner': isOwner,
-    };
+    return {'id': id, 'name': name, 'isOwner': isOwner};
   }
 }
