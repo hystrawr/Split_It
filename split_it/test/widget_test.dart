@@ -20,6 +20,21 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    // Add Expense has no back button; an empty form closes on Cancel.
+    Future<void> cancelExpense() async {
+      await tester.scrollUntilVisible(
+        find.text('Cancel'),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tap('Cancel');
+    }
+
     Future<void> back() async {
       await tester.pageBack();
       await tester.pumpAndSettle();
@@ -41,7 +56,7 @@ void main() {
     // Group -> Add Expense -> back to Group
     await tap('+ Add Expense');
     expect(find.widgetWithText(AppBar, 'Add Expense'), findsOneWidget);
-    await tap('Save');
+    await cancelExpense();
     expect(find.text('Group Details'), findsOneWidget);
 
     // Group -> Balances -> back
@@ -54,7 +69,7 @@ void main() {
     expect(find.text('Expense Details'), findsOneWidget);
     await tap('Edit');
     expect(find.widgetWithText(AppBar, 'Add Expense'), findsOneWidget);
-    await back();
+    await cancelExpense();
     await tap('Delete');
     expect(find.text('Group Details'), findsOneWidget);
 
