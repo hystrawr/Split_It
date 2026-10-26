@@ -39,7 +39,7 @@ class MemberChip extends StatelessWidget {
       );
     }
 
-    return InputChip(
+    return Chip(
       avatar: avatar,
       label: label,
       onDeleted: onRemove,
