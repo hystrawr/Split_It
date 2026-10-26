@@ -40,9 +40,16 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    // Home -> Add Group -> back to Home
+    // Home -> Add Group -> back to Home. The form needs a name and one
+    // other member before Create Group closes it.
     await tap('New group');
     expect(find.text('New Group'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField).first, 'Trip');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Member name'),
+      'Ana',
+    );
+    await tap('Add');
     await tap('Create Group');
     expect(find.text('Hi, Barby!'), findsOneWidget);
 
@@ -51,13 +58,15 @@ void main() {
         .state<NavigatorState>(find.byType(Navigator))
         .pushNamed(AppRoutes.group);
     await tester.pumpAndSettle();
-    expect(find.text('Group Details'), findsOneWidget);
+    // Until the data layer is in, the title is the placeholder group name.
+    final groupTitle = find.widgetWithText(AppBar, 'Group');
+    expect(groupTitle, findsOneWidget);
 
     // Group -> Add Expense -> back to Group
-    await tap('+ Add Expense');
+    await tap('Add Expense');
     expect(find.widgetWithText(AppBar, 'Add Expense'), findsOneWidget);
     await cancelExpense();
-    expect(find.text('Group Details'), findsOneWidget);
+    expect(groupTitle, findsOneWidget);
 
     // Group -> Balances -> back
     await tap('Balances');
@@ -65,13 +74,17 @@ void main() {
     await back();
 
     // Group -> Expense Details -> Edit (Add Expense) -> back -> Delete
-    await tap('Open expense');
+    // (no expense rows yet, so open the route directly)
+    tester
+        .state<NavigatorState>(find.byType(Navigator))
+        .pushNamed(AppRoutes.expense, arguments: 'expense-1');
+    await tester.pumpAndSettle();
     expect(find.text('Expense Details'), findsOneWidget);
     await tap('Edit');
     expect(find.widgetWithText(AppBar, 'Add Expense'), findsOneWidget);
     await cancelExpense();
     await tap('Delete');
-    expect(find.text('Group Details'), findsOneWidget);
+    expect(groupTitle, findsOneWidget);
 
     // Group -> back to Home
     await back();

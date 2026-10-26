@@ -24,8 +24,10 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    // Scrolls instead of overflowing when the space is short, e.g. under
+    // the tabs on Group Details on a small phone.
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,

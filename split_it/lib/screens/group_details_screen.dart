@@ -162,12 +162,10 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   Widget _buildExpenseList() {
     final tiles = _expenseTiles;
     if (tiles.isEmpty) {
-      return EmptyState(
+      return const EmptyState(
         icon: Icons.receipt_long_outlined,
         title: 'No expenses yet',
         message: 'Add the first expense to start splitting.',
-        actionLabel: 'Add Expense',
-        onAction: _openAddExpense,
       );
     }
     return _buildTileList(tiles);
