@@ -46,13 +46,24 @@ class _PrimaryButtonState extends State<PrimaryButton> {
   Widget build(BuildContext context) {
     final offset = _pressed ? _shadowOffset : 0.0;
 
+    final label = Text(
+      widget.label,
+      style: Theme.of(context).textTheme.labelLarge,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+
     final content = Row(
       mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       spacing: 8,
       children: [
         if (widget.icon != null) Icon(widget.icon, size: 20),
-        Text(widget.label, style: Theme.of(context).textTheme.labelLarge),
+        // An expanded button has a fixed width, so the label shrinks to
+        // "Add Exp…" on narrow screens instead of overflowing. A hugging
+        // button can sit in a Row with no width limit, where Flexible
+        // would throw.
+        if (widget.expand) Flexible(child: label) else label,
       ],
     );
 
@@ -67,7 +78,12 @@ class _PrimaryButtonState extends State<PrimaryButton> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
           transform: Matrix4.translationValues(offset, offset, 0),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          // Less side padding when expanded: the content is centered
+          // anyway, and it leaves room for the full label on a 360px phone.
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.expand ? 12 : 20,
+            vertical: 14,
+          ),
           decoration: BoxDecoration(
             color: _enabled ? widget.color : AppColors.settled,
             borderRadius: AppTheme.borderRadius,
