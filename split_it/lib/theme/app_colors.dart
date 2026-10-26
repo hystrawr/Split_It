@@ -8,6 +8,9 @@ class AppColors {
   static const Color cream = Color(0xFFFFF8E7);
   static const Color surface = Color(0xFFFFFFFF);
 
+  /// Secondary buttons, e.g. Delete on Expense Detail.
+  static const Color beige = Color(0xFFF1E4C8);
+
   // Greens (summary cards, banners)
   static const Color sage = Color(0xFFB7CBA8);
   static const Color darkGreen = Color(0xFF2F4F3A);
