@@ -15,6 +15,7 @@ class GroupSummary {
   String get id => group.id;
   String get name => group.name;
   int get memberCount => group.members.length;
+  bool get hasExpenses => group.expenses.isNotEmpty;
 }
 
 class HomeProvider extends ChangeNotifier {

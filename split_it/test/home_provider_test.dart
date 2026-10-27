@@ -33,6 +33,7 @@ void main() {
     final group = groups.groups.single;
     final you = group.members[0].id;
     final trisha = group.members[1].id;
+    expect(home.groups.single.hasExpenses, isFalse);
 
     // You paid ₱300 for both of you, so Trisha owes you ₱150.
     await groups.addExpense(
@@ -54,6 +55,7 @@ void main() {
 
     expect(home.groups.single.name, 'Cafe Barkads');
     expect(home.groups.single.memberCount, 2);
+    expect(home.groups.single.hasExpenses, isTrue);
     expect(home.groups.single.balance, 150);
     expect(home.totalOwed, 150);
     expect(home.totalOwe, 0);

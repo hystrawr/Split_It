@@ -189,6 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
             name: group.name,
             memberCount: group.memberCount,
             balance: group.balance,
+            hasExpenses: group.hasExpenses,
             onTap: () => _openGroup(group),
           ),
         );

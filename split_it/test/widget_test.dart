@@ -63,6 +63,9 @@ void main() {
     await tap('Add');
     await tap('Create Group');
     expect(find.text('Hi, Barby!'), findsOneWidget);
+    // A new group has nothing to split yet, so it isn't "Settled".
+    expect(find.text('No expenses'), findsOneWidget);
+    expect(find.text('Settled ✓'), findsNothing);
 
     // Home -> Group Details through the new group's card
     await tap('Trip');
