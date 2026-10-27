@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../app_routes.dart';
+import '../providers/home_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_circle.dart';
@@ -10,22 +12,6 @@ import '../widgets/group_card.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/summary_banner.dart';
 
-// TODO: replace with the Group model
-class _GroupItem {
-  const _GroupItem({
-    required this.id,
-    required this.name,
-    required this.memberCount,
-    required this.balance,
-  });
-
-  final String id;
-  final String name;
-  final int memberCount;
-  final double balance;
-}
-
-/// Home screen (/home): greeting, total balance, search and the group list.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -34,13 +20,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // TODO: read the user's name and groups from GroupProvider.
-  static const String _userName = 'Barby';
-
-  final List<_GroupItem> _groups = [];
-
   final TextEditingController _searchController = TextEditingController();
-  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.text = context.read<HomeProvider>().query;
+  }
 
   @override
   void dispose() {
@@ -48,28 +34,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  List<_GroupItem> get _filteredGroups {
-    final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return _groups;
-    return _groups
-        .where((group) => group.name.toLowerCase().contains(query))
-        .toList();
-  }
-
-  double get _totalOwed => _groups
-      .where((group) => group.balance > 0)
-      .fold(0, (sum, group) => sum + group.balance);
-
-  double get _totalOwe => _groups
-      .where((group) => group.balance < 0)
-      .fold(0, (sum, group) => sum - group.balance);
-
   void _openAddGroup() => Navigator.pushNamed(context, AppRoutes.addGroup);
 
-  void _openGroup(_GroupItem group) =>
+  void _openGroup(GroupSummary group) =>
       Navigator.pushNamed(context, AppRoutes.group, arguments: group.id);
 
-  Future<bool> _confirmDelete(_GroupItem group) {
+  Future<bool> _confirmDelete(GroupSummary group) {
     return ConfirmDialog.show(
       context,
       title: 'Delete group?',
@@ -79,8 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _deleteGroup(_GroupItem group) {
-    setState(() => _groups.remove(group));
+  void _deleteGroup(GroupSummary group) {
+    context.read<HomeProvider>().deleteGroup(group.id);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('Deleted "${group.name}"')));
@@ -88,11 +58,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _clearSearch() {
     _searchController.clear();
-    setState(() => _query = '');
+    context.read<HomeProvider>().search('');
   }
 
   @override
   Widget build(BuildContext context) {
+    final home = context.watch<HomeProvider>();
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -101,22 +73,22 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: 16,
             children: [
-              _buildGreeting(context),
+              _buildGreeting(context, home.userName),
               SummaryBanner(
                 title: 'Total balance',
                 items: [
                   SummaryItem(
                     label: 'you are owed',
-                    value: '₱${_totalOwed.toStringAsFixed(2)}',
+                    value: '₱${home.totalOwed.toStringAsFixed(2)}',
                   ),
                   SummaryItem(
                     label: 'you owe',
-                    value: '₱${_totalOwe.toStringAsFixed(2)}',
+                    value: '₱${home.totalOwe.toStringAsFixed(2)}',
                   ),
                 ],
               ),
-              _buildSearchRow(),
-              Expanded(child: _buildGroupList()),
+              _buildSearchRow(home),
+              Expanded(child: _buildGroupList(home)),
             ],
           ),
         ),
@@ -124,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildGreeting(BuildContext context) {
+  Widget _buildGreeting(BuildContext context, String userName) {
     final textTheme = Theme.of(context).textTheme;
 
     return Row(
@@ -133,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Hi, $_userName!', style: textTheme.headlineMedium),
+              Text('Hi, $userName!', style: textTheme.headlineMedium),
               Text(
                 'Who owes whom today?',
                 style: textTheme.bodyMedium?.copyWith(
@@ -143,24 +115,24 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        const AvatarCircle(name: _userName, size: 48),
+        AvatarCircle(name: userName, size: 48),
       ],
     );
   }
 
-  Widget _buildSearchRow() {
+  Widget _buildSearchRow(HomeProvider home) {
     return Row(
       spacing: 12,
       children: [
         Expanded(
           child: TextField(
             controller: _searchController,
-            onChanged: (value) => setState(() => _query = value),
+            onChanged: home.search,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: 'Search groups',
               prefixIcon: const Icon(Icons.search),
-              suffixIcon: _query.isEmpty
+              suffixIcon: home.query.isEmpty
                   ? null
                   : IconButton(
                       tooltip: 'Clear search',
@@ -179,8 +151,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildGroupList() {
-    if (_groups.isEmpty) {
+  Widget _buildGroupList(HomeProvider home) {
+    if (home.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (home.hasNoGroups) {
       return const EmptyState(
         icon: Icons.group_outlined,
         title: 'No groups yet',
@@ -188,17 +164,16 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final groups = _filteredGroups;
+    final groups = home.groups;
     if (groups.isEmpty) {
       return EmptyState(
         icon: Icons.search_off,
         title: 'No matches',
-        message: 'No group is named "${_query.trim()}".',
+        message: 'No group is named "${home.query.trim()}".',
       );
     }
 
     return ListView.separated(
-      // Room at the bottom for the last card's offset shadow.
       padding: const EdgeInsets.only(bottom: 24, right: 4),
       itemCount: groups.length,
       separatorBuilder: (_, _) => const SizedBox(height: 14),
