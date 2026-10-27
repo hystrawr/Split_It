@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'app_routes.dart';
+import 'providers/balance_provider.dart';
+import 'providers/currency_provider.dart';
+import 'providers/group_provider.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -12,12 +16,28 @@ class SplitItApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Split It',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      initialRoute: AppRoutes.home,
-      routes: AppRoutes.routes,
+    // The providers sit above MaterialApp so every screen can reach them
+    // with context.watch / context.read, without passing data through
+    // constructors.
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => GroupProvider()..loadGroups()),
+        ChangeNotifierProvider(create: (_) => CurrencyProvider()..loadRates()),
+        // BalanceProvider is calculated from the groups, so it is rebuilt
+        // with the latest GroupProvider every time the groups change.
+        ChangeNotifierProxyProvider<GroupProvider, BalanceProvider>(
+          create: (_) => BalanceProvider(),
+          update: (_, groups, balances) =>
+              (balances ?? BalanceProvider())..updateGroups(groups),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'Split It',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        initialRoute: AppRoutes.home,
+        routes: AppRoutes.routes,
+      ),
     );
   }
 }

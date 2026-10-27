@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:split_it/app_routes.dart';
 import 'package:split_it/main.dart';
 
 void main() {
+  // GroupProvider loads from shared_preferences, which has no device in
+  // tests, so every test starts with empty fake storage.
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('App starts on the home screen', (WidgetTester tester) async {
     await tester.pumpWidget(const SplitItApp());
 
