@@ -131,6 +131,15 @@ class GroupProvider extends ChangeNotifier {
     );
   }
 
+  /// Marks the debt with [debtId] (see Debt.id) as settled, so balances
+  /// stop counting it.
+  Future<void> settleDebt(String groupId, String debtId) async {
+    await _replaceGroup(groupId, (group) {
+      if (group.settledDebtIds.contains(debtId)) return group;
+      return group.copyWith(settledDebtIds: [...group.settledDebtIds, debtId]);
+    });
+  }
+
   /// Finds the group with [groupId], replaces it with [update]'s result,
   /// then saves. Group is immutable, so a change means a new copy.
   Future<void> _replaceGroup(
