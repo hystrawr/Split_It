@@ -81,9 +81,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Expense Details'), findsOneWidget);
     await tap('Edit');
-    expect(find.widgetWithText(AppBar, 'Add Expense'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Edit Expense'), findsOneWidget);
     await cancelExpense();
     await tap('Delete');
+    expect(find.text('Delete expense?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Delete'));
+    await tester.pumpAndSettle();
     expect(groupTitle, findsOneWidget);
 
     // Group -> back to Home

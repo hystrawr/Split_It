@@ -10,6 +10,7 @@ import '../widgets/error_state.dart';
 import '../widgets/member_balance_tile.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/summary_banner.dart';
+import 'add_expense_screen.dart';
 
 /// Group Details screen (/group): summary, actions and the
 /// Expenses | Members toggle. Expects the groupId as the route argument.
@@ -57,8 +58,11 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
 
   static String _peso(double amount) => '₱${amount.toStringAsFixed(2)}';
 
-  void _openAddExpense() =>
-      Navigator.pushNamed(context, AppRoutes.addExpense, arguments: _groupId);
+  void _openAddExpense() => Navigator.pushNamed(
+    context,
+    AppRoutes.addExpense,
+    arguments: AddExpenseArgs(groupId: _groupId),
+  );
 
   void _openBalances() =>
       Navigator.pushNamed(context, AppRoutes.balance, arguments: _groupId);

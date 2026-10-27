@@ -8,8 +8,16 @@ import '../widgets/confirm_dialog.dart';
 import '../widgets/member_chip.dart';
 import '../widgets/primary_button.dart';
 
-/// Add/Edit Expense screen (/addExpense). Expects the groupId as the route
-/// argument, plus the expenseId when editing.
+/// Route arguments for /addExpense. [expenseId] is set only when editing.
+class AddExpenseArgs {
+  const AddExpenseArgs({required this.groupId, this.expenseId});
+
+  final String? groupId;
+  final String? expenseId;
+}
+
+/// Add/Edit Expense screen (/addExpense). Expects [AddExpenseArgs] as the
+/// route argument: the groupId, plus the expenseId when editing.
 ///
 /// UI only. Members, currencies, the conversion line and saving all come
 /// from the data layer; nothing is calculated or stored here.
@@ -36,10 +44,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   /// Set after the first Save tap so the "Divided with" error only shows then.
   bool _submitted = false;
 
+  AddExpenseArgs? get _args =>
+      ModalRoute.of(context)?.settings.arguments as AddExpenseArgs?;
+
+  bool get _isEditing => _args?.expenseId != null;
+
   // TODO: read these from GroupProvider / CurrencyProvider once the data
   // layer is in. When editing, also fill the controllers and fields above
   // from the expense.
-  bool get _isEditing => false;
   List<String> get _members => const [];
   List<String> get _currencyCodes => const ['PHP'];
 
