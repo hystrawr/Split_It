@@ -4,6 +4,7 @@ import '../models/group.dart';
 
 class StorageService {
   static const String _groupsKey = 'groups';
+  static const String _userNameKey = 'userName';
 
   Future<List<Group>> loadGroups() async {
     final prefs = await SharedPreferences.getInstance();
@@ -24,5 +25,15 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     final raw = jsonEncode(groups.map((g) => g.toJson()).toList());
     await prefs.setString(_groupsKey, raw);
+  }
+
+  Future<String?> loadUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_userNameKey);
+  }
+
+  Future<void> saveUserName(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userNameKey, name);
   }
 }

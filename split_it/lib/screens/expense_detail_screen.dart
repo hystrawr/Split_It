@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../app_routes.dart';
+import '../models/expense.dart';
+import '../models/group.dart';
+import '../providers/balance_provider.dart';
+import '../providers/group_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_card.dart';
@@ -11,12 +16,6 @@ import '../widgets/error_state.dart';
 import '../widgets/primary_button.dart';
 import 'add_expense_screen.dart';
 
-/// Expense Detail screen (/expense): the item card, the split breakdown per
-/// person and the Edit / Delete buttons. Expects the expenseId as the route
-/// argument.
-///
-/// UI only. The expense, the shares and deleting all come from the data
-/// layer; nothing is calculated here.
 class ExpenseDetailScreen extends StatelessWidget {
   const ExpenseDetailScreen({super.key});
 
@@ -35,95 +34,111 @@ class ExpenseDetailScreen extends StatelessWidget {
     'Dec',
   ];
 
-  // TODO: read these from GroupProvider for the expenseId once the data
-  // layer is in. Until then they show an empty expense.
-  bool get _isLoading => false;
-  String? get _error => null;
-
-  /// The expense's group (Expense.groupId), passed on to Edit.
-  String? get _groupId => null;
-  String get _item => 'Expense';
-  String get _where => '';
-  String get _category => 'Others';
-  DateTime? get _date => null;
-
-  /// The expense in pesos (Expense.amountPhp).
-  double get _amountPhp => 0;
-
-  /// The amount as typed and its saved rate, e.g. "\$5.00 USD · 1 USD =
-  /// ₱58.24". Null for PHP expenses, which hides the line.
-  String? get _originalAmountText => null;
-
-  // TODO: one row per person in the split, payer first, e.g.
-  // _SplitRow(name: 'Barby', paid: 300, share: 100) for the payer and
-  // _SplitRow(name: 'Trisha', share: 100) for everyone else.
-  List<_SplitRow> get _splitRows => const [];
-
-  // TODO: ask the provider to fetch the expense again.
-  void _retry() {}
-
   static String _peso(double amount) => '₱${amount.toStringAsFixed(2)}';
+
+  static String? _originalAmountText(Expense expense) {
+    if (expense.currency == 'PHP' || expense.rate == 0) return null;
+    final code = expense.currency;
+    return '${expense.amount.toStringAsFixed(2)} $code · '
+        '1 $code = ${_peso(1 / expense.rate)}';
+  }
+
+  static List<_SplitRow> _splitRows(
+    Group group,
+    Expense expense,
+    BalanceProvider balances,
+  ) {
+    final share = balances.shareOf(expense);
+    return [
+      _SplitRow(
+        name: _nameOf(group, expense.paidBy),
+        paid: expense.amountPhp,
+        share: expense.splitWith.contains(expense.paidBy) ? share : 0,
+      ),
+      for (final memberId in expense.splitWith)
+        if (memberId != expense.paidBy)
+          _SplitRow(name: _nameOf(group, memberId), share: share),
+    ];
+  }
+
+  static String _nameOf(Group group, String memberId) {
+    for (final member in group.members) {
+      if (member.id == memberId) return member.name;
+    }
+    return 'Unknown';
+  }
 
   String? _expenseId(BuildContext context) =>
       ModalRoute.of(context)?.settings.arguments as String?;
 
-  void _edit(BuildContext context) => Navigator.pushNamed(
+  void _edit(BuildContext context, Expense expense) => Navigator.pushNamed(
     context,
     AppRoutes.addExpense,
-    arguments: AddExpenseArgs(
-      groupId: _groupId,
-      expenseId: _expenseId(context),
-    ),
+    arguments: AddExpenseArgs(groupId: expense.groupId, expenseId: expense.id),
   );
 
-  Future<void> _delete(BuildContext context) async {
+  Future<void> _delete(BuildContext context, Expense expense) async {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Delete expense?',
-      message: 'This removes "$_item" and updates everyone\'s balances.',
+      message:
+          'This removes "${expense.item}" and updates everyone\'s '
+          'balances.',
       confirmLabel: 'Delete',
       destructive: true,
     );
     if (!confirmed || !context.mounted) return;
-
-    // TODO: delete the expense through GroupProvider.
+    final groups = context.read<GroupProvider>();
     Navigator.pop(context);
+    await groups.deleteExpense(expense.groupId, expense.id);
   }
 
   @override
   Widget build(BuildContext context) {
+    final groupProvider = context.watch<GroupProvider>();
+    final balances = context.watch<BalanceProvider>();
+    final expenseId = _expenseId(context);
+    final expense = expenseId == null
+        ? null
+        : groupProvider.expenseById(expenseId);
+    final group = expense == null
+        ? null
+        : groupProvider.groupById(expense.groupId);
+
+    Widget body;
+    if (groupProvider.isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (expense == null || group == null) {
+      body = ErrorState(
+        title: "Couldn't load this expense",
+        message: 'It may have been deleted.',
+        onRetry: groupProvider.loadGroups,
+      );
+    } else {
+      body = _buildBody(context, expense, _splitRows(group, expense, balances));
+    }
+
     return Scaffold(
       appBar: const AppHeader(title: 'Expense Details'),
-      body: SafeArea(child: _buildBody(context)),
+      body: SafeArea(child: body),
     );
   }
 
-  Widget _buildBody(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final error = _error;
-    if (error != null) {
-      return ErrorState(
-        title: "Couldn't load this expense",
-        message: error,
-        onRetry: _retry,
-      );
-    }
-
+  Widget _buildBody(
+    BuildContext context,
+    Expense expense,
+    List<_SplitRow> rows,
+  ) {
     final textTheme = Theme.of(context).textTheme;
-    final rows = _splitRows;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
           child: ListView(
-            // Right/bottom room for the cards' offset shadows.
             padding: const EdgeInsets.fromLTRB(20, 8, 24, 16),
             children: [
-              _buildItemCard(context),
+              _buildItemCard(context, expense),
               const SizedBox(height: 24),
               Text('Split breakdown', style: textTheme.titleMedium),
               const SizedBox(height: 4),
@@ -153,22 +168,22 @@ class ExpenseDetailScreen extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 24, 16),
-          child: _buildActions(context),
+          child: _buildActions(context, expense),
         ),
       ],
     );
   }
 
-  /// Big centered card: item, peso amount, "Panda Coffee · Aug 5 · Food".
-  Widget _buildItemCard(BuildContext context) {
+  /// big card
+  Widget _buildItemCard(BuildContext context, Expense expense) {
     final textTheme = Theme.of(context).textTheme;
-    final date = _date;
+    final date = expense.date;
     final details = [
-      if (_where.isNotEmpty) _where,
-      if (date != null) '${_months[date.month - 1]} ${date.day}',
-      _category,
+      if (expense.where.isNotEmpty) expense.where,
+      '${_months[date.month - 1]} ${date.day}',
+      expense.category,
     ].join(' · ');
-    final originalAmount = _originalAmountText;
+    final originalAmount = _originalAmountText(expense);
 
     return AppCard(
       color: AppColors.sage,
@@ -184,11 +199,14 @@ class ExpenseDetailScreen extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.fromBorderSide(AppTheme.outlineSide),
             ),
-            child: Icon(_categoryIcon(_category), color: AppColors.darkGreen),
+            child: Icon(
+              _categoryIcon(expense.category),
+              color: AppColors.darkGreen,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
-            _item,
+            expense.item,
             style: textTheme.titleLarge,
             textAlign: TextAlign.center,
             maxLines: 2,
@@ -197,7 +215,7 @@ class ExpenseDetailScreen extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              _peso(_amountPhp),
+              _peso(expense.amountPhp),
               style: textTheme.headlineMedium?.copyWith(
                 color: AppColors.darkGreen,
               ),
@@ -226,8 +244,7 @@ class ExpenseDetailScreen extends StatelessWidget {
     _ => Icons.shopping_bag_outlined,
   };
 
-  Widget _buildActions(BuildContext context) {
-    // Same height trick as Add Expense: Delete matches Edit's height.
+  Widget _buildActions(BuildContext context, Expense expense) {
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -239,7 +256,7 @@ class ExpenseDetailScreen extends StatelessWidget {
               icon: Icons.close,
               color: AppColors.beige,
               expand: true,
-              onPressed: () => _delete(context),
+              onPressed: () => _delete(context, expense),
             ),
           ),
           Expanded(
@@ -247,7 +264,7 @@ class ExpenseDetailScreen extends StatelessWidget {
               label: 'Edit',
               icon: Icons.edit_outlined,
               expand: true,
-              onPressed: () => _edit(context),
+              onPressed: () => _edit(context, expense),
             ),
           ),
         ],
@@ -256,22 +273,14 @@ class ExpenseDetailScreen extends StatelessWidget {
   }
 }
 
-/// One person in the split. [paid] is set only for the payer.
 class _SplitRow {
-  // ignore: unused_element_parameter
   const _SplitRow({required this.name, required this.share, this.paid});
 
   final String name;
-
-  /// This person's part of the expense, in pesos.
   final double share;
-
-  /// What the payer paid, in pesos. Null for everyone else.
   final double? paid;
 }
 
-/// Avatar, name, "share ₱100" and a "paid ₱300" (sage) or "owes ₱100"
-/// (pink) pill.
 class _SplitTile extends StatelessWidget {
   const _SplitTile({required this.row});
 

@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
-enum BalanceStatus { owed, owes, paid, settled }
+enum BalanceStatus { owed, owes, paid, settled, noExpenses }
 
-/// Pill showing where a balance or debt stands: owed, owes, paid or settled.
+/// Pill showing where a balance or debt stands: owed, owes, paid, settled,
+/// or "No expenses" for a group that has nothing to split yet.
 class StatusPill extends StatelessWidget {
   const StatusPill({
     super.key,
@@ -39,7 +40,7 @@ class StatusPill extends StatelessWidget {
 
   final BalanceStatus status;
 
-  /// Shown after "owed" / "owes". Ignored for paid and settled.
+  /// Shown after "owed" / "owes". Ignored for the other statuses.
   final double? amount;
   final String currency;
 
@@ -53,6 +54,7 @@ class StatusPill extends StatelessWidget {
       BalanceStatus.owes => (AppColors.owes, 'owes$_money'),
       BalanceStatus.paid => (AppColors.paid, 'Paid'),
       BalanceStatus.settled => (AppColors.settled, 'Settled ✓'),
+      BalanceStatus.noExpenses => (AppColors.surface, 'No expenses'),
     };
 
     return Container(

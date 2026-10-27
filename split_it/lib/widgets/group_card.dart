@@ -6,13 +6,14 @@ import 'avatar_circle.dart';
 import 'status_pill.dart';
 
 /// One group in the Home list: initials icon, name, member count and a
-/// balance pill (owed / owes / settled).
+/// balance pill (owed / owes / settled / no expenses).
 class GroupCard extends StatelessWidget {
   const GroupCard({
     super.key,
     required this.name,
     required this.memberCount,
     required this.balance,
+    this.hasExpenses = true,
     this.currency = '₱',
     this.onTap,
   });
@@ -22,6 +23,10 @@ class GroupCard extends StatelessWidget {
 
   /// Your balance in this group. Positive = you are owed, negative = you owe.
   final double balance;
+
+  /// False for a new group, which shows "No expenses" instead of
+  /// "Settled ✓" (its balance is 0 only because nothing was added yet).
+  final bool hasExpenses;
   final String currency;
   final VoidCallback? onTap;
 
@@ -54,7 +59,9 @@ class GroupCard extends StatelessWidget {
               ],
             ),
           ),
-          StatusPill.fromAmount(balance, currency: currency),
+          hasExpenses
+              ? StatusPill.fromAmount(balance, currency: currency)
+              : const StatusPill(status: BalanceStatus.noExpenses),
         ],
       ),
     );
