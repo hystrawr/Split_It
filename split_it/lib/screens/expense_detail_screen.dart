@@ -244,7 +244,8 @@ class ExpenseDetailScreen extends StatelessWidget {
     _ => Icons.shopping_bag_outlined,
   };
 
-  Widget _buildActions(BuildContext context, Expense expense) {    return IntrinsicHeight(
+  Widget _buildActions(BuildContext context, Expense expense) {
+    return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 12,
@@ -279,6 +280,7 @@ class _SplitRow {
   final double share;
   final double? paid;
 }
+
 class _SplitTile extends StatelessWidget {
   const _SplitTile({required this.row});
 
