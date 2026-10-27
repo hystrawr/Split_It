@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../app_routes.dart';
+import '../models/group.dart';
+import '../providers/balance_provider.dart';
+import '../providers/group_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_card.dart';
@@ -12,11 +16,6 @@ import '../widgets/primary_button.dart';
 import '../widgets/summary_banner.dart';
 import 'add_expense_screen.dart';
 
-/// Group Details screen (/group): summary, actions and the
-/// Expenses | Members toggle. Expects the groupId as the route argument.
-///
-/// UI only. Totals, balances and the lists all come from the data layer;
-/// nothing is calculated here.
 class GroupDetailsScreen extends StatefulWidget {
   const GroupDetailsScreen({super.key});
 
@@ -31,30 +30,59 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   int _tabIndex = _expensesTab;
 
   String? get _groupId => ModalRoute.of(context)?.settings.arguments as String?;
+  Group? _group;
+  late BalanceProvider _balances;
 
-  // TODO: read these from GroupProvider / BalanceProvider for _groupId once
-  // the data layer is in. Until then they show an empty group.
-  bool get _isLoading => false;
-  String? get _error => null;
-  String get _groupName => 'Group';
-  String get _currency => 'PHP';
-  int get _memberCount => 0;
-  double get _totalSpent => 0;
+  String get _groupName => _group?.name ?? 'Group';
+  String get _currency => _group?.defaultCurrency ?? 'PHP';
+  int get _memberCount => _group?.members.length ?? 0;
+  double get _totalSpent => _group == null ? 0 : _balances.totalSpent(_group!);
 
-  /// Positive = you are owed, negative = you owe.
-  double get _yourBalance => 0;
+  ///pos= u are owed. neg= u owe
+  double get _yourBalance =>
+      _group == null ? 0 : _balances.ownerBalance(_group!);
 
-  // TODO: build from the group's expenses, e.g.
-  // _ExpenseTile(title: …, paidBy: …, date: …, amount: …,
-  //     onTap: () => _openExpense(expense.id))
-  List<_ExpenseTile> get _expenseTiles => const [];
+  /// newest first
+  List<_ExpenseTile> get _expenseTiles {
+    final group = _group;
+    if (group == null) return const [];
+    final expenses = [...group.expenses]
+      ..sort((a, b) => b.date.compareTo(a.date));
+    return [
+      for (final expense in expenses)
+        _ExpenseTile(
+          title: expense.item,
+          paidBy: _nameOf(group, expense.paidBy),
+          date: expense.date,
+          amount: expense.amountPhp,
+          onTap: () => _openExpense(expense.id),
+        ),
+    ];
+  }
 
-  // TODO: build from the group's members and their balances, e.g.
-  // MemberBalanceTile(name: …, paid: …, balance: …)
-  List<MemberBalanceTile> get _memberTiles => const [];
+  List<MemberBalanceTile> get _memberTiles {
+    final group = _group;
+    if (group == null) return const [];
+    final balances = _balances.netBalances(group);
+    return [
+      for (final member in group.members)
+        MemberBalanceTile(
+          name: member.name,
+          paid: _balances.paidBy(group, member.id),
+          balance: balances[member.id] ?? 0,
+        ),
+    ];
+  }
 
-  // TODO: ask the provider to fetch the group again.
-  void _retry() {}
+  /// loads groups
+  void _retry() => context.read<GroupProvider>().loadGroups();
+
+  static String _nameOf(Group group, String memberId) {
+    for (final member in group.members) {
+      if (member.id == memberId) return member.name;
+    }
+    return 'Unknown';
+  }
 
   static String _peso(double amount) => '₱${amount.toStringAsFixed(2)}';
 
@@ -67,28 +95,31 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   void _openBalances() =>
       Navigator.pushNamed(context, AppRoutes.balance, arguments: _groupId);
 
-  // ignore: unused_element
   void _openExpense(String expenseId) =>
       Navigator.pushNamed(context, AppRoutes.expense, arguments: expenseId);
 
   @override
   Widget build(BuildContext context) {
+    final groupProvider = context.watch<GroupProvider>();
+    _balances = context.watch<BalanceProvider>();
+    final groupId = _groupId;
+    _group = groupId == null ? null : groupProvider.groupById(groupId);
+
     return Scaffold(
       appBar: AppHeader(title: _groupName),
-      body: SafeArea(child: _buildBody()),
+      body: SafeArea(child: _buildBody(groupProvider.isLoading)),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
+  Widget _buildBody(bool isLoading) {
+    if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final error = _error;
-    if (error != null) {
+    if (_group == null) {
       return ErrorState(
         title: "Couldn't load this group",
-        message: error,
+        message: 'It may have been deleted.',
         onRetry: _retry,
       );
     }
@@ -198,7 +229,6 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   }
 }
 
-/// One expense row: title, "Paid by X · Aug 5" and the amount.
 class _ExpenseTile extends StatelessWidget {
   const _ExpenseTile({
     required this.title,
@@ -267,8 +297,6 @@ class _ExpenseTile extends StatelessWidget {
   }
 }
 
-/// Outlined pill switch between the Expenses and Members tabs. The active
-/// tab is amber.
 class _TabToggle extends StatelessWidget {
   const _TabToggle({
     required this.labels,
