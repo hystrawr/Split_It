@@ -5,6 +5,7 @@ import 'app_routes.dart';
 import 'providers/balance_provider.dart';
 import 'providers/currency_provider.dart';
 import 'providers/group_provider.dart';
+import 'providers/home_provider.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -29,6 +30,16 @@ class SplitItApp extends StatelessWidget {
           create: (_) => BalanceProvider(),
           update: (_, groups, balances) =>
               (balances ?? BalanceProvider())..updateGroups(groups),
+        ),
+        // HomeProvider puts the groups and balances together for Home.
+        ChangeNotifierProxyProvider2<
+          GroupProvider,
+          BalanceProvider,
+          HomeProvider
+        >(
+          create: (_) => HomeProvider()..loadUserName(),
+          update: (_, groups, balances, home) =>
+              (home ?? HomeProvider())..update(groups, balances),
         ),
       ],
       child: MaterialApp(
