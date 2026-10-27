@@ -1,34 +1,27 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/debt.dart';
+import '../models/expense.dart';
 import '../models/group.dart';
 import 'group_provider.dart';
 
-/// Works out who owes whom from the groups in [GroupProvider].
-///
-/// Nothing here is saved: debts and balances are calculated again from the
-/// expenses whenever GroupProvider changes, so they can never get out of
-/// date. Only the ids of settled debts are stored, in Group.settledDebtIds.
 class BalanceProvider extends ChangeNotifier {
   GroupProvider? _groups;
-
-  /// Called by ChangeNotifierProxyProvider in main.dart every time
-  /// GroupProvider changes, so every balance screen rebuilds too.
   void updateGroups(GroupProvider groups) {
     _groups = groups;
     notifyListeners();
   }
 
-  /// Every debt in [group], one per person who shares an expense they
-  /// didn't pay for.
-  ///
-  /// Equal split: each expense costs amountPhp / splitWith.length per
-  /// person. The payer's own share isn't a debt, so it is skipped.
+  double shareOf(Expense expense) {
+    if (expense.splitWith.isEmpty) return 0;
+    return expense.amountPhp / expense.splitWith.length;
+  }
+
   List<Debt> debtsFor(Group group) {
     final debts = <Debt>[];
     for (final expense in group.expenses) {
       if (expense.splitWith.isEmpty) continue;
-      final share = expense.amountPhp / expense.splitWith.length;
+      final share = shareOf(expense);
 
       for (final memberId in expense.splitWith) {
         if (memberId == expense.paidBy) continue;
