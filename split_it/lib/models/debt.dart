@@ -27,4 +27,13 @@ class Debt {
   /// Identifies this debt, so it stays settled after balances are
   /// recalculated. One expense has at most one debt per debtor.
   String get id => '$expenseId:$from:$to';
+
+  /// A copy of this debt marked as settled.
+  Debt asSettled() => Debt(
+    from: from,
+    to: to,
+    amount: amount,
+    expenseId: expenseId,
+    isSettled: true,
+  );
 }
