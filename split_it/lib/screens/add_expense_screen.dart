@@ -1,5 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/expense.dart';
+import '../models/group.dart';
+import '../models/member.dart';
+import '../providers/currency_provider.dart';
+import '../providers/group_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_card.dart';
@@ -16,11 +23,6 @@ class AddExpenseArgs {
   final String? expenseId;
 }
 
-/// Add/Edit Expense screen (/addExpense). Expects [AddExpenseArgs] as the
-/// route argument: the groupId, plus the expenseId when editing.
-///
-/// UI only. Members, currencies, the conversion line and saving all come
-/// from the data layer; nothing is calculated or stored here.
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
 
@@ -38,38 +40,115 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   String _currency = 'PHP';
   String _category = _categories.first;
+
+  /// Member ids, not names, since two members could share a name.
   String? _paidBy;
   final Set<String> _dividedWith = {};
 
   /// Set after the first Save tap so the "Divided with" error only shows then.
   bool _submitted = false;
 
+  /// True while saving, so Save can't be tapped twice.
+  bool _saving = false;
+
+  /// The fields are filled from the group / expense once, the first time
+  /// the providers are read.
+  bool _initialized = false;
+
+  Group? _group;
+
+  /// The expense being edited, or null when adding.
+  Expense? _original;
+
   AddExpenseArgs? get _args =>
       ModalRoute.of(context)?.settings.arguments as AddExpenseArgs?;
 
   bool get _isEditing => _args?.expenseId != null;
 
-  // TODO: read these from GroupProvider / CurrencyProvider once the data
-  // layer is in. When editing, also fill the controllers and fields above
-  // from the expense.
-  List<String> get _members => const [];
-  List<String> get _currencyCodes => const ['PHP'];
+  List<Member> get _members => _group?.members ?? const [];
 
-  // TODO: the conversion line from CurrencyProvider, e.g.
-  // "≈ ₱1,456.00 · 1 USD = ₱58.24 (Frankfurter)". Null hides the line.
-  bool get _rateLoading => false;
-  String? get _rateError => null;
-  String? get _conversionText => null;
+  /// PHP first, then every currency Frankfurter can convert.
+  List<String> _currencyCodes(CurrencyProvider currencies) => [
+    'PHP',
+    for (final currency in currencies.currencies)
+      if (currency.code != 'PHP') currency.code,
+  ];
 
-  // TODO: ask CurrencyProvider for the rate again.
-  void _retryRate() {}
+  /// The rate to save with the expense (1 PHP = rate × currency).
+  /// An edited expense keeps its saved rate unless the currency changes,
+  /// so old expenses don't move when the rates do.
+  double? _rateFor(CurrencyProvider currencies) {
+    if (_currency == 'PHP') return 1;
+    final original = _original;
+    if (original != null && original.currency == _currency) {
+      return original.rate;
+    }
+    return currencies.rateFor(_currency);
+  }
 
-  bool get _isDirty =>
-      _amountController.text.isNotEmpty ||
-      _whereController.text.isNotEmpty ||
-      _itemController.text.isNotEmpty ||
-      _paidBy != null ||
-      _dividedWith.isNotEmpty;
+  /// "≈ ₱1456.00 · 1 USD = ₱58.24 (Frankfurter)". Null hides the line.
+  String? _conversionText(CurrencyProvider currencies) {
+    final rate = _rateFor(currencies);
+    if (rate == null || rate == 0) return null;
+    final rateText = '1 $_currency = ${_peso(1 / rate)} (Frankfurter)';
+    final amount = double.tryParse(_amountController.text.trim());
+    if (amount == null || amount <= 0) return rateText;
+    return '≈ ${_peso(amount / rate)} · $rateText';
+  }
+
+  static String _peso(double amount) => '₱${amount.toStringAsFixed(2)}';
+
+  bool get _isDirty {
+    final original = _original;
+    if (original == null) {
+      return _amountController.text.isNotEmpty ||
+          _whereController.text.isNotEmpty ||
+          _itemController.text.isNotEmpty ||
+          _paidBy != null ||
+          _dividedWith.isNotEmpty;
+    }
+    return double.tryParse(_amountController.text.trim()) != original.amount ||
+        _whereController.text.trim() != original.where ||
+        _itemController.text.trim() != original.item ||
+        _currency != original.currency ||
+        _category != original.category ||
+        _paidBy != original.paidBy ||
+        !setEquals(_dividedWith, original.splitWith.toSet());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+
+    final groups = context.read<GroupProvider>();
+    final args = _args;
+    final expenseId = args?.expenseId;
+    _original = expenseId == null ? null : groups.expenseById(expenseId);
+    final groupId = _original?.groupId ?? args?.groupId;
+    _group = groupId == null ? null : groups.groupById(groupId);
+
+    final original = _original;
+    if (original != null) {
+      _amountController.text = _formatAmount(original.amount);
+      _whereController.text = original.where;
+      _itemController.text = original.item;
+      _currency = original.currency;
+      _category = _categories.contains(original.category)
+          ? original.category
+          : _categories.last;
+      _paidBy = original.paidBy;
+      _dividedWith.addAll(original.splitWith);
+    } else if (_group != null) {
+      _currency = _group!.defaultCurrency;
+    }
+  }
+
+  /// 300.0 → "300", 12.5 → "12.5", so the field looks like what was typed.
+  static String _formatAmount(double amount) => amount == amount.roundToDouble()
+      ? amount.toStringAsFixed(0)
+      : amount.toString();
 
   @override
   void dispose() {
@@ -95,12 +174,54 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (discard && mounted) Navigator.pop(context);
   }
 
-  void _save() {
+  Future<void> _save() async {
     setState(() => _submitted = true);
     final formValid = _formKey.currentState!.validate();
     if (!formValid || _dividedWith.isEmpty) return;
 
-    // TODO: save (or update) the expense through GroupProvider.
+    final group = _group;
+    if (group == null) return;
+
+    final rate = _rateFor(context.read<CurrencyProvider>());
+    if (rate == null || rate == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("No rate for $_currency yet. Retry or use PHP."),
+        ),
+      );
+      return;
+    }
+
+    final amount = double.parse(_amountController.text.trim());
+    final original = _original;
+    final expense = Expense(
+      id: original?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+      groupId: group.id,
+      where: _whereController.text.trim(),
+      item: _itemController.text.trim(),
+      category: _category,
+      amount: amount,
+      currency: _currency,
+      rate: rate,
+      amountPhp: amount / rate,
+      paidBy: _paidBy!,
+      // Member order, so the split breakdown lists people the same way.
+      splitWith: [
+        for (final member in group.members)
+          if (_dividedWith.contains(member.id)) member.id,
+      ],
+      date: original?.date ?? DateTime.now(),
+    );
+
+    setState(() => _saving = true);
+    final groups = context.read<GroupProvider>();
+    if (original == null) {
+      await groups.addExpense(expense);
+    } else {
+      await groups.updateExpense(expense);
+    }
+
+    if (!mounted) return;
     Navigator.pop(context);
   }
 
@@ -119,7 +240,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !_isDirty,
+      canPop: !_isDirty || _saving,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _cancel();
       },
@@ -231,12 +352,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   Widget _buildCurrencyPill() {
+    final currencies = context.watch<CurrencyProvider>();
+
     return PopupMenuButton<String>(
       tooltip: 'Currency',
       initialValue: _currency,
       onSelected: (code) => setState(() => _currency = code),
       itemBuilder: (_) => [
-        for (final code in _currencyCodes)
+        for (final code in _currencyCodes(currencies))
           PopupMenuItem(value: code, child: Text(code)),
       ],
       child: Container(
@@ -268,11 +391,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget _buildConversionLine() {
     if (_currency == 'PHP') return const SizedBox.shrink();
 
+    final currencies = context.watch<CurrencyProvider>();
+    final text = _conversionText(currencies);
     final style = Theme.of(
       context,
     ).textTheme.bodySmall?.copyWith(color: AppColors.darkGreen);
 
-    if (_rateLoading) {
+    if (text == null && currencies.isLoading) {
       return Row(
         spacing: 8,
         children: [
@@ -286,24 +411,25 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       );
     }
 
-    if (_rateError != null) {
+    if (text == null) {
       return Row(
         children: [
           const Icon(Icons.wifi_off_rounded, size: 16, color: AppColors.error),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              _rateError!,
+              currencies.errorMessage ?? "Couldn't get the $_currency rate.",
               style: style?.copyWith(color: AppColors.error),
             ),
           ),
-          TextButton(onPressed: _retryRate, child: const Text('Retry')),
+          TextButton(
+            onPressed: context.read<CurrencyProvider>().loadRates,
+            child: const Text('Retry'),
+          ),
         ],
       );
     }
 
-    final text = _conversionText;
-    if (text == null) return const SizedBox.shrink();
     return Text(text, style: style);
   }
 
@@ -328,10 +454,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       hint: const Text('Choose who paid'),
       decoration: const InputDecoration(prefixIcon: Icon(Icons.person_outline)),
       items: [
-        for (final name in _members)
-          DropdownMenuItem(value: name, child: Text(name)),
+        for (final member in _members)
+          DropdownMenuItem(value: member.id, child: Text(member.name)),
       ],
-      onChanged: (name) => setState(() => _paidBy = name),
+      onChanged: (memberId) => setState(() => _paidBy = memberId),
       validator: (value) => value == null ? 'Choose who paid' : null,
     );
   }
@@ -354,15 +480,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final name in _members)
+            for (final member in _members)
               MemberChip(
-                name: name,
-                selected: _dividedWith.contains(name),
+                name: member.name,
+                selected: _dividedWith.contains(member.id),
                 onSelected: (selected) => setState(() {
                   if (selected) {
-                    _dividedWith.add(name);
+                    _dividedWith.add(member.id);
                   } else {
-                    _dividedWith.remove(name);
+                    _dividedWith.remove(member.id);
                   }
                 }),
               ),
@@ -398,7 +524,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               label: _isEditing ? 'Save changes' : 'Save',
               icon: Icons.check,
               expand: true,
-              onPressed: _save,
+              onPressed: _saving ? null : _save,
             ),
           ),
         ],

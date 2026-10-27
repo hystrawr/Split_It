@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:split_it/app_routes.dart';
 import 'package:split_it/main.dart';
+import 'package:split_it/models/expense.dart';
+import 'package:split_it/providers/group_provider.dart';
 
 void main() {
   // GroupProvider loads from shared_preferences, which has no device in
@@ -14,6 +16,8 @@ void main() {
 
   testWidgets('App starts on the home screen', (WidgetTester tester) async {
     await tester.pumpWidget(const SplitItApp());
+    // Groups load from storage first, with a spinner meanwhile.
+    await tester.pumpAndSettle();
 
     expect(find.text('Hi, Barby!'), findsOneWidget);
     expect(find.text('No groups yet'), findsOneWidget);
@@ -60,13 +64,9 @@ void main() {
     await tap('Create Group');
     expect(find.text('Hi, Barby!'), findsOneWidget);
 
-    // Home -> Group Details (no group cards yet, so open the route directly)
-    tester
-        .state<NavigatorState>(find.byType(Navigator))
-        .pushNamed(AppRoutes.group);
-    await tester.pumpAndSettle();
-    // Until the data layer is in, the title is the placeholder group name.
-    final groupTitle = find.widgetWithText(AppBar, 'Group');
+    // Home -> Group Details through the new group's card
+    await tap('Trip');
+    final groupTitle = find.widgetWithText(AppBar, 'Trip');
     expect(groupTitle, findsOneWidget);
 
     // Group -> Add Expense -> back to Group
@@ -80,13 +80,32 @@ void main() {
     expect(find.widgetWithText(AppBar, 'Balances'), findsOneWidget);
     await back();
 
-    // Group -> Expense Details -> Edit (Add Expense) -> back -> Delete
-    // (no expense rows yet, so open the route directly)
-    tester
-        .state<NavigatorState>(find.byType(Navigator))
-        .pushNamed(AppRoutes.expense, arguments: 'expense-1');
+    // Add an expense straight through GroupProvider so there's a row to tap.
+    final context = tester.element(groupTitle);
+    final groups = Provider.of<GroupProvider>(context, listen: false);
+    final group = groups.groups.single;
+    await groups.addExpense(
+      Expense(
+        id: 'expense-1',
+        groupId: group.id,
+        where: 'Panda Coffee',
+        item: 'Iced latte',
+        category: 'Food',
+        amount: 300,
+        currency: 'PHP',
+        rate: 1,
+        amountPhp: 300,
+        paidBy: group.members[0].id,
+        splitWith: [for (final member in group.members) member.id],
+        date: DateTime(2026, 10, 27),
+      ),
+    );
     await tester.pumpAndSettle();
+
+    // Group -> Expense Details -> Edit (Add Expense) -> back -> Delete
+    await tap('Iced latte');
     expect(find.text('Expense Details'), findsOneWidget);
+    expect(find.text('owes ₱150.00'), findsOneWidget);
     await tap('Edit');
     expect(find.widgetWithText(AppBar, 'Edit Expense'), findsOneWidget);
     await cancelExpense();
@@ -95,6 +114,7 @@ void main() {
     await tester.tap(find.widgetWithText(ElevatedButton, 'Delete'));
     await tester.pumpAndSettle();
     expect(groupTitle, findsOneWidget);
+    expect(find.text('No expenses yet'), findsOneWidget);
 
     // Group -> back to Home
     await back();
