@@ -61,6 +61,25 @@ class BalanceProvider extends ChangeNotifier {
     return netBalances(group)[owner.first.id] ?? 0;
   }
 
+  /// What others still owe the owner in [group]. Not reduced by what the
+  /// owner owes them; only settling a debt lowers it.
+  double ownerOwed(Group group) => _ownerDebtTotal(group, owedToOwner: true);
+
+  /// What the owner still owes others in [group], as a positive number.
+  /// Not reduced by what they owe the owner.
+  double ownerOwes(Group group) => _ownerDebtTotal(group, owedToOwner: false);
+
+  double _ownerDebtTotal(Group group, {required bool owedToOwner}) {
+    final owner = group.members.where((member) => member.isOwner);
+    if (owner.isEmpty) return 0;
+    final ownerId = owner.first.id;
+    final total = debtsFor(group)
+        .where((debt) => !debt.isSettled)
+        .where((debt) => (owedToOwner ? debt.to : debt.from) == ownerId)
+        .fold(0.0, (sum, debt) => sum + debt.amount);
+    return total < 0.005 ? 0 : total;
+  }
+
   /// Total amount the member with [memberId] paid in [group], in PHP.
   double paidBy(Group group, String memberId) {
     return group.expenses
@@ -74,15 +93,13 @@ class BalanceProvider extends ChangeNotifier {
   }
 
   /// What the owner is owed across all groups (Home banner).
-  double get totalOwed => _ownerBalances
-      .where((balance) => balance > 0)
-      .fold(0.0, (sum, balance) => sum + balance);
+  double get totalOwed =>
+      _allGroups.fold(0.0, (sum, group) => sum + ownerOwed(group));
 
   /// What the owner owes across all groups (Home banner), as a positive
   /// number.
-  double get totalOwe => _ownerBalances
-      .where((balance) => balance < 0)
-      .fold(0.0, (sum, balance) => sum - balance);
+  double get totalOwe =>
+      _allGroups.fold(0.0, (sum, group) => sum + ownerOwes(group));
 
   /// Marks a debt as paid. GroupProvider saves it, then notifies, which
   /// calls [updateGroups] and recalculates every balance.
@@ -90,6 +107,5 @@ class BalanceProvider extends ChangeNotifier {
     await _groups?.settleDebt(groupId, debt.id);
   }
 
-  Iterable<double> get _ownerBalances =>
-      (_groups?.groups ?? const <Group>[]).map(ownerBalance);
+  List<Group> get _allGroups => _groups?.groups ?? const <Group>[];
 }

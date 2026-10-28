@@ -88,6 +88,26 @@ void main() {
     expect(balances.ownerBalance(group), closeTo(-25, 0.001));
   });
 
+  test('what you owe does not lower what you are owed', () {
+    // You pay ₱150 for fries shared with Trisha, so Trisha owes you ₱75,
+    // while you still owe Trisha ₱100 for the latte.
+    final fries = _expense(
+      'fries',
+      150,
+      paidBy: 'you',
+      splitWith: ['you', 'trisha'],
+    );
+
+    final group = _group([latte, fries]);
+
+    expect(balances.ownerOwed(group), 75);
+    expect(balances.ownerOwes(group), 100);
+
+    final settled = _group([latte, fries], settled: ['fries:trisha:you']);
+    expect(balances.ownerOwed(settled), 0);
+    expect(balances.ownerOwes(settled), 100);
+  });
+
   test('a settled debt no longer counts', () {
     final group = _group([latte], settled: ['latte:you:trisha']);
 
