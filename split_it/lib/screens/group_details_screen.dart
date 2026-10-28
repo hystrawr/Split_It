@@ -38,9 +38,9 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
   int get _memberCount => _group?.members.length ?? 0;
   double get _totalSpent => _group == null ? 0 : _balances.totalSpent(_group!);
 
-  ///pos= u are owed. neg= u owe
-  double get _yourBalance =>
-      _group == null ? 0 : _balances.ownerBalance(_group!);
+  /// owed and owe are kept apart; only settling a debt lowers them
+  double get _youreOwed => _group == null ? 0 : _balances.ownerOwed(_group!);
+  double get _youOwe => _group == null ? 0 : _balances.ownerOwes(_group!);
 
   /// newest first
   List<_ExpenseTile> get _expenseTiles {
@@ -141,10 +141,8 @@ class _GroupDetailsScreenState extends State<GroupDetailsScreen> {
                     : '$_memberCount members · $_currency',
                 value: _peso(_totalSpent),
               ),
-              SummaryItem(
-                label: _yourBalance < 0 ? 'you owe' : "you're owed",
-                value: _peso(_yourBalance.abs()),
-              ),
+              SummaryItem(label: "you're owed", value: _peso(_youreOwed)),
+              SummaryItem(label: 'you owe', value: _peso(_youOwe)),
             ],
           ),
           Row(
