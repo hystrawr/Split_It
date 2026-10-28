@@ -448,17 +448,62 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
+  // DropdownMenu like the currency picker on Add Group, so the menu has the
+  // app's outline. FormField keeps the "Choose who paid" check.
   Widget _buildPaidByDropdown() {
-    return DropdownButtonFormField<String>(
+    return FormField<String>(
       initialValue: _paidBy,
-      hint: const Text('Choose who paid'),
-      decoration: const InputDecoration(prefixIcon: Icon(Icons.person_outline)),
-      items: [
-        for (final member in _members)
-          DropdownMenuItem(value: member.id, child: Text(member.name)),
-      ],
-      onChanged: (memberId) => setState(() => _paidBy = memberId),
       validator: (value) => value == null ? 'Choose who paid' : null,
+      builder: (field) => DropdownMenu<String>(
+        initialSelection: _members.any((m) => m.id == _paidBy) ? _paidBy : null,
+        hintText: 'Choose who paid',
+        errorText: field.errorText,
+        // full width, like the other fields
+        expandedInsets: EdgeInsets.zero,
+        // tapping opens the menu without the keyboard
+        requestFocusOnTap: false,
+        // DropdownMenu skips the app's input theme by default, which loses
+        // the white fill
+        inputDecorationTheme: Theme.of(context).inputDecorationTheme,
+        leadingIcon: const Icon(Icons.person_outline),
+        trailingIcon: const Icon(Icons.keyboard_arrow_down),
+        selectedTrailingIcon: const Icon(Icons.keyboard_arrow_up),
+        menuStyle: MenuStyle(
+          backgroundColor: const WidgetStatePropertyAll(AppColors.surface),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          elevation: const WidgetStatePropertyAll(0),
+          side: const WidgetStatePropertyAll(AppTheme.outlineSide),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: AppTheme.borderRadius),
+          ),
+          padding: const WidgetStatePropertyAll(EdgeInsets.all(6)),
+        ),
+        dropdownMenuEntries: [
+          for (final member in _members)
+            DropdownMenuEntry(
+              value: member.id,
+              label: member.name,
+              trailingIcon: member.id == _paidBy
+                  ? const Icon(Icons.check, size: 18)
+                  : null,
+              style: _menuItemStyle(selected: member.id == _paidBy),
+            ),
+        ],
+        onSelected: (memberId) {
+          field.didChange(memberId);
+          setState(() => _paidBy = memberId);
+        },
+      ),
+    );
+  }
+
+  /// menu row: amber pill for the picked member, light amber on hover
+  static ButtonStyle _menuItemStyle({required bool selected}) {
+    return MenuItemButton.styleFrom(
+      backgroundColor: selected ? AppColors.amber : Colors.transparent,
+      foregroundColor: AppColors.textPrimary,
+      overlayColor: AppColors.paid,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     );
   }
 
