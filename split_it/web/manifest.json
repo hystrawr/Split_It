@@ -1,11 +1,11 @@
 {
-    "name": "split_it",
-    "short_name": "split_it",
+    "name": "Split It",
+    "short_name": "Split It",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFF8E7",
     "theme_color": "#FFC94A",
-    "description": "A new Flutter project.",
+    "description": "Split expenses with friends and see who owes whom.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
