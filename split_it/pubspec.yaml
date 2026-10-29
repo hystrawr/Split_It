@@ -48,6 +48,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_native_splash: ^2.4.8
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -90,3 +92,32 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Android's launch screen, shown for a moment while Flutter starts. It is
+# plain cream so it blends into the animated splash (lib/screens/
+# splash_screen.dart). Android 12+ would show the app icon unless given an
+# image, so it gets a transparent one.
+# Regenerate after changes with: dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#FFF8E7"
+  android_12:
+    image: assets/splash/blank.png
+    color: "#FFF8E7"
+  android: true
+  ios: false
+  web: false
+
+# App icon (Android and web): the splash logo (coin + rings) on cream. The PNGs in
+# assets/icon/ are frames rendered from lib/screens/splash_screen.dart.
+# Regenerate after changes with: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/icon/icon.png
+  adaptive_icon_background: "#FFF8E7"
+  adaptive_icon_foreground: assets/icon/icon_foreground.png
+  # Browser tab icon (favicon) and web app icons, for testing in Chrome.
+  web:
+    generate: true
+    background_color: "#FFF8E7"
+    theme_color: "#FFC94A"

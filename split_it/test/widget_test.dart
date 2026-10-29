@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:split_it/main.dart';
 import 'package:split_it/models/expense.dart';
 import 'package:split_it/providers/group_provider.dart';
+import 'package:split_it/screens/splash_screen.dart';
 
 void main() {
   // GroupProvider loads from shared_preferences, which has no device in
@@ -16,7 +17,8 @@ void main() {
 
   testWidgets('App starts on the home screen', (WidgetTester tester) async {
     await tester.pumpWidget(const SplitItApp());
-    // Groups load from storage first, with a spinner meanwhile.
+    // The splash shows while the groups load, then Home opens.
+    expect(find.byType(SplashScreen), findsOneWidget);
     await tester.pumpAndSettle();
 
     expect(find.text('Hi, Barby!'), findsOneWidget);
@@ -25,6 +27,7 @@ void main() {
 
   testWidgets('Every screen can be reached', (WidgetTester tester) async {
     await tester.pumpWidget(const SplitItApp());
+    await tester.pumpAndSettle(); // past the splash
 
     Future<void> tap(String label) async {
       await tester.tap(find.text(label));

@@ -46,7 +46,7 @@ class SplitItApp extends StatelessWidget {
         title: 'Split It',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
-        initialRoute: AppRoutes.home,
+        initialRoute: AppRoutes.splash,
         routes: AppRoutes.routes,
       ),
     );
